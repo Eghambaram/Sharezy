@@ -1,0 +1,211 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/*
+ * DataExchange design tokens (PROMPT.md §10).
+ * Components use the Tailwind utilities generated from these (bg-primary,
+ * text-muted-foreground, …). Never inline hex values in components.
+ */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: #ffffff;
+  --foreground: #111827; /* gray-900 */
+  --surface: #f9fafb; /* cool gray 50 */
+  --surface-2: #f3f4f6; /* cool gray 100 */
+  --card: #ffffff;
+  --card-foreground: #111827;
+  --muted: #f3f4f6;
+  --muted-foreground: #4b5563; /* gray-600 */
+  --border: #e5e7eb; /* gray-200 */
+  --input: #d1d5db;
+  --ring: #0f9d8a;
+
+  --primary: #0b1f4d; /* navy */
+  --primary-foreground: #ffffff;
+  --primary-soft: #e8ecf6;
+  --accent: #0f9d8a; /* teal: privacy, consent, success */
+  --accent-foreground: #ffffff;
+  --accent-soft: #e6f6f3;
+  --accent-strong: #0a7365; /* teal for text and filled buttons (AA on white/tint) */
+  --success: #10b981; /* emerald */
+  --success-foreground: #ffffff;
+  --success-strong: #047857;
+  --warning: #f59e0b; /* amber */
+  --warning-foreground: #451a03;
+  --warning-soft: #fef3c7;
+  --warning-strong: #b45309;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --destructive-soft: #fee2e2;
+  --info: #1d4ed8;
+  --info-soft: #dbeafe;
+  --neutral: #475569; /* slate */
+  --neutral-soft: #f1f5f9;
+  --rose: #be123c;
+  --rose-soft: #ffe4e6;
+
+  --sidebar: #0b1f4d;
+  --sidebar-foreground: #e5e9f5;
+
+  --radius-card: 16px;
+  --radius-control: 12px;
+
+  --shadow-1: 0 1px 2px rgb(15 23 42 / 0.06), 0 1px 3px rgb(15 23 42 / 0.08);
+  --shadow-2: 0 8px 24px rgb(15 23 42 / 0.10), 0 2px 6px rgb(15 23 42 / 0.06);
+
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Dark token set (no toggle UI in MVP). */
+.dark {
+  --background: #0a1020;
+  --foreground: #f3f4f6;
+  --surface: #0f172a;
+  --surface-2: #162036;
+  --card: #111a2e;
+  --card-foreground: #f3f4f6;
+  --muted: #1e293b;
+  --muted-foreground: #9ca3af;
+  --border: #253149;
+  --input: #334155;
+  --ring: #2dd4bf;
+  --primary: #9fb4ea;
+  --primary-foreground: #0b1f4d;
+  --primary-soft: #1a2a52;
+  --accent: #2dd4bf;
+  --accent-foreground: #042f2a;
+  --accent-soft: #0b3b36;
+  --accent-strong: #5eead4;
+  --success: #34d399;
+  --success-strong: #6ee7b7;
+  --warning: #fbbf24;
+  --warning-soft: #3b2a07;
+  --warning-strong: #fcd34d;
+  --destructive: #f87171;
+  --destructive-soft: #3f1212;
+  --info: #60a5fa;
+  --info-soft: #172554;
+  --neutral: #94a3b8;
+  --neutral-soft: #1e293b;
+  --rose: #fb7185;
+  --rose-soft: #4c0519;
+  --sidebar: #070f26;
+}
+
+@theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-strong: var(--accent-strong);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-strong: var(--success-strong);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-strong: var(--warning-strong);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-neutral: var(--neutral);
+  --color-neutral-soft: var(--neutral-soft);
+  --color-rose: var(--rose);
+  --color-rose-soft: var(--rose-soft);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+
+  --radius-card: var(--radius-card);
+  --radius-control: var(--radius-control);
+  --shadow-1: var(--shadow-1);
+  --shadow-2: var(--shadow-2);
+
+  /* Type scale 12/14/16/20/24/32/40 */
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 20px;
+  --text-xl: 24px;
+  --text-2xl: 32px;
+  --text-3xl: 40px;
+  --text-code: 48px;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-feature-settings: "cv11", "ss01";
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .pb-safe {
+    padding-bottom: max(16px, var(--safe-bottom));
+  }
+}
+
+/* Skeleton shimmer: transform-only sweep; static in reduced motion. */
+.dx-skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.dx-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.55), transparent);
+  animation: dx-shimmer 1.4s linear infinite;
+}
+.dark .dx-skeleton::after {
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.06), transparent);
+}
+@keyframes dx-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dx-skeleton::after {
+    animation: none;
+    display: none;
+  }
+}
+[data-reduced-motion="true"] .dx-skeleton::after {
+  animation: none;
+  display: none;
+}

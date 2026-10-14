@@ -1,0 +1,14 @@
+packages:
+  - apps/*
+  - packages/*
+
+autoInstallPeers: true
+strictPeerDependencies: false
+
+# Only these dependencies may run install scripts. @scarf/scarf is install telemetry.
+allowBuilds:
+  '@prisma/engines': true
+  '@scarf/scarf': false
+  esbuild: true
+  prisma: true
+  unrs-resolver: true

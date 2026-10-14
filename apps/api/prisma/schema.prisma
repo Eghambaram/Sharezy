@@ -1,0 +1,271 @@
+// DataExchange — Prisma schema
+// Source of truth for the domain model (PROMPT.md §7). Field keys, statuses and
+// roles mirror packages/shared; keep them in sync.
+//
+// Personal data lives in: CustomerProfile, ConsentGrant.payloadCipher (encrypted),
+// CustomerRecord. Nothing else may hold personal values — AuditEvent.meta in particular.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  STAFF
+}
+
+enum ShareMethod {
+  QR
+  CODE
+}
+
+enum SessionStatus {
+  WAITING
+  IN_REVIEW
+  APPROVED
+  DECLINED
+  EXPIRED
+  CANCELLED
+  COMPLETED
+}
+
+enum ConsentDecision {
+  APPROVED
+  DECLINED
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  authSubject   String    @unique // provider subject (Clerk user id, or dev-<id>)
+  email         String?   @unique
+  emailVerified Boolean   @default(false)
+  phone         String?   @unique // E.164
+  phoneVerified Boolean   @default(false)
+  isSample      Boolean   @default(false)
+  /// Last time contact details were refreshed from the auth provider.
+  lastSyncedAt  DateTime?
+  createdAt     DateTime  @default(now())
+  deletedAt     DateTime?
+
+  profile         CustomerProfile?
+  memberships     Membership[]
+  createdSessions ShareSession[]   @relation("SessionCreatedBy")
+  boundSessions   ShareSession[]   @relation("SessionCustomer")
+  createdRecords  CustomerRecord[]
+  invitationsSent Invitation[]
+}
+
+model CustomerProfile {
+  userId       String   @id
+  firstName    String?
+  lastName     String?
+  email        String?
+  phone        String? // E.164
+  addressLine1 String?
+  addressLine2 String?
+  city         String?
+  region       String?
+  postalCode   String?
+  country      String? // ISO-3166 alpha-2
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Organization {
+  id                 String    @id @default(cuid())
+  name               String
+  category           String
+  contactEmail       String?
+  contactPhone       String?
+  logoUrl            String?
+  /// Null in MVP. Set only by a real verification process — never by seed or UI.
+  verifiedAt         DateTime?
+  qrTtlMinutes       Int       @default(15)
+  defaultExplanation String?   @db.VarChar(200)
+  dataContact        String?
+  isSample           Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  deletedAt          DateTime?
+
+  memberships Membership[]
+  sessions    ShareSession[]
+  grants      ConsentGrant[]
+  records     CustomerRecord[]
+  invitations Invitation[]
+  auditEvents AuditEvent[]
+}
+
+model Membership {
+  id             String   @id @default(cuid())
+  userId         String
+  organizationId String
+  role           Role
+  createdAt      DateTime @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+}
+
+model Invitation {
+  id             String           @id @default(cuid())
+  organizationId String
+  email          String
+  role           Role
+  status         InvitationStatus @default(PENDING)
+  invitedById    String
+  createdAt      DateTime         @default(now())
+  acceptedAt     DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy    User         @relation(fields: [invitedById], references: [id])
+
+  @@index([organizationId, status])
+  @@index([email, status])
+}
+
+model ShareSession {
+  id             String        @id @default(cuid())
+  reference      String        @unique // human-friendly, e.g. REQ-7K4M2
+  organizationId String
+  createdById    String
+  name           String        @db.VarChar(80)
+  purpose        String        @db.VarChar(120)
+  explanation    String?       @db.VarChar(200)
+  method         ShareMethod
+  status         SessionStatus @default(WAITING)
+  /// sha256(token), base64url. Plaintext token is returned once and never stored.
+  qrTokenHash    String?       @unique
+  /// HMAC-SHA256(pepper, code). Uniqueness among WAITING sessions is enforced by a
+  /// partial unique index created in raw SQL (see migrations).
+  codeHash       String?
+  expiresAt      DateTime
+  customerId     String? // bound on first successful resolve
+  boundAt        DateTime?
+  decidedAt      DateTime?
+  cancelledAt    DateTime?
+  completedAt    DateTime?
+  isSample       Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User             @relation("SessionCreatedBy", fields: [createdById], references: [id])
+  customer     User?            @relation("SessionCustomer", fields: [customerId], references: [id], onDelete: SetNull)
+  fields       RequestedField[]
+  grant        ConsentGrant?
+
+  @@index([organizationId, status, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([customerId, status])
+  @@index([status, expiresAt])
+}
+
+model RequestedField {
+  sessionId String
+  fieldKey  String // validated against FIELD_CATALOG in packages/shared
+  required  Boolean
+
+  session ShareSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@id([sessionId, fieldKey])
+}
+
+model ConsentGrant {
+  id                 String          @id @default(cuid())
+  receiptId          String          @unique // e.g. DX-7K4M-92QF
+  sessionId          String          @unique
+  /// Plain id (no FK) so account deletion can pseudonymise it.
+  customerId         String
+  organizationId     String
+  decision           ConsentDecision
+  approvedKeys       String[]
+  requestedKeys      String[]
+  requiredKeys       String[]
+  purposeSnapshot    String
+  orgNameSnapshot    String
+  consentTextVersion String
+  /// Client-supplied idempotency key; unique per session (and therefore per customer).
+  idempotencyKey     String
+  /// AES-256-GCM snapshot of approved values. Null when declined.
+  payloadCipher      Bytes?
+  payloadKeyId       String?
+  hiddenByCustomerAt DateTime?
+  isSample           Boolean         @default(false)
+  createdAt          DateTime        @default(now())
+
+  session      ShareSession    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  record       CustomerRecord?
+
+  @@index([customerId, createdAt])
+  @@index([organizationId, createdAt])
+}
+
+model CustomerRecord {
+  id             String    @id @default(cuid())
+  organizationId String
+  sourceGrantId  String    @unique
+  fullName       String?
+  email          String?
+  phone          String?
+  address        Json?
+  createdById    String
+  isSample       Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime? @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sourceGrant  ConsentGrant @relation(fields: [sourceGrantId], references: [id])
+  createdBy    User         @relation(fields: [createdById], references: [id])
+
+  @@index([organizationId, fullName])
+  @@index([organizationId, email])
+  @@index([organizationId, phone])
+  @@index([organizationId, createdAt])
+}
+
+model AuditEvent {
+  id             String   @id @default(cuid())
+  at             DateTime @default(now())
+  actorUserId    String?
+  organizationId String?
+  sessionId      String?
+  type           String // AuditEventType from packages/shared
+  /// Ids, keys, and counts only — never personal data values.
+  meta           Json     @default("{}")
+  ipHash         String?
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, at])
+  @@index([sessionId, at])
+  @@index([type, at])
+}
+
+/// Fixed-window counters for @nestjs/throttler storage and domain limits
+/// (e.g. failed share-code attempts per user / per IP hash). No Redis in MVP.
+model RateLimitBucket {
+  key          String   @id
+  hits         Int      @default(0)
+  windowEndsAt DateTime
+  blockedUntil DateTime?
+
+  @@index([windowEndsAt])
+}
